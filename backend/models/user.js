@@ -1,49 +1,32 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+// models/User.js
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, "Name is required"],
+const UserSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  passwordHash: { type: String, required: true },
+  aadharNumber: { type: String, required: true, unique: true },
+  phone: { type: String },
+  avatar: { type: String },
+  preferences: {
+    location: String,
+    budget: Number,
+    roommatePreferences: String,
+    amenities: [String],
   },
-  email: {
-    type: String,
-    required: [true, "Email is required"],
-    unique: true,
-    match: [/^\S+@\S+\.\S+$/, "Please enter a valid email address"],
-  },
-  password: {
-    type: String,
-    required: function () {
-      return !this.googleId; // Password is required only if googleId is not set
-    },
-  },
-  googleId: {
-    type: String,
-    unique: true,
-    sparse: true,
-  },
-  profileCompleted:{
-    type:Boolean,
-    default:false,
-  }
-}
-,{
-    timestamps: true, // Automatically manage createdAt and updatedAt fields
-});
-userSchema.pre("save", async function (next) {
-    if(!this.isModified("password")) return next();
-    try{
+  isVerified: { type: Boolean, default: false },
+  otp: { type: String },
+  otpExpires: { type: Date },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
+  listedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }]
+}, { timestamps: true });
 
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password,salt);
-        next();
-    }catch(err){
-        next(err);
-    }
-})
-userSchema.methods.comparePassword = async function(password){
-    return await bcrypt.compare(password,this.password);
-}
-const User = mongoose.model("User", userSchema);
+// Method to compare password
+UserSchema.methods.comparePassword = function(password) {
+  return bcrypt.compareSync(password, this.passwordHash);
+};
+
+const User = mongoose.model('User', UserSchema);
 export default User;

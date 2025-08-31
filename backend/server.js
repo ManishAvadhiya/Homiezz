@@ -1,13 +1,10 @@
-import express from 'express';
+import express from "express";
 import dotenv from "dotenv";
-import { connectDB } from './lib/db.js';
-import cookieParser from 'cookie-parser';
-import cors from 'cors';
-import passport from 'passport';
-import initializePassport from './lib/passport.js';
+import { connectDB } from "./lib/db.js";
+import cookieParser from "cookie-parser";
+import cors from "cors";
 
-import { userRouter } from './routes/user.route.js';
-
+import authRoutes from "./routes/auth.js";
 
 dotenv.config();
 
@@ -23,11 +20,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(passport.initialize());
-initializePassport();
 
-app.use("/api/auth", userRouter);
-
+app.use("/api/auth", authRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend server");
