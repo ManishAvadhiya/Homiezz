@@ -20,67 +20,13 @@ import {
   Heart,
   TrendingUp,
 } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md supports-[backdrop-filter]:bg-white/80 border-b border-orange-200 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl shadow-lg">
-              <img
-                src="/logo.png"
-                alt="Homiezz Logo"
-                height={"40px"}
-                width={"40px"}
-              />
-            </div>
-            <span
-              className="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text text-transparent animate-pulse text-4xl font-bold cursor-pointer"
-              onClick={() => (window.location.href = "/")}
-            >
-              Homiezz
-            </span>
-          </div>
-          <div className="hidden md:flex items-center space-x-8">
-            <a
-              href="/find-rooms"
-              className="text-gray-700 hover:text-orange-600 transition-colors font-medium"
-            >
-              Find Rooms
-            </a>
-            <a
-              href="/find-roommates"
-              className="text-gray-700 hover:text-orange-600 transition-colors font-medium"
-            >
-              Find Roommates
-            </a>
-            <a
-              href="/about"
-              className="text-gray-700 hover:text-orange-600 transition-colors font-medium"
-            >
-              About
-            </a>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              className="border-orange-300 text-orange-700 hover:bg-orange-50 bg-transparent"
-            >
-              <a
-                href="/register"
-                className="text-gray-700 hover:text-orange-600 transition-colors font-medium"
-              >
-                Login
-              </a>
-            </Button>
-            <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-lg">
-              Sign Up
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="py-24 px-4 relative overflow-hidden">

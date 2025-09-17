@@ -13,7 +13,7 @@ const generateOTP = () => {
 // Signup Controller
 export const signup = async (req, res) => {
   try {
-    const { name, email, password, aadharNumber, phone } = req.body;
+    const { name, email, password, aadharNumber, phone, role } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ 
@@ -43,7 +43,8 @@ export const signup = async (req, res) => {
       aadharNumber,
       phone,
       otp,
-      otpExpires
+      otpExpires,
+      role
     });
 
     await newUser.save();
@@ -115,7 +116,7 @@ export const verifyOTP = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { userId: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -135,7 +136,8 @@ export const verifyOTP = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        isVerified: user.isVerified
+        isVerified: user.isVerified,
+        role: user.role
       }
     });
   } catch (error) {
@@ -235,7 +237,7 @@ export const login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { userId: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -255,7 +257,8 @@ export const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        isVerified: user.isVerified
+        isVerified: user.isVerified,
+        role: user.role
       }
     });
   } catch (error) {
@@ -388,13 +391,27 @@ export const logout = (req, res) => {
   });
 };
 
-// Get Current User Controller
+// Get Current User Controller - FIXED
 export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-passwordHash');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
     res.status(200).json({
       success: true,
-      user
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isVerified: user.isVerified,
+        role: user.role
+      }
     });
   } catch (error) {
     console.error('Get current user error:', error);

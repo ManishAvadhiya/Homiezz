@@ -1,25 +1,58 @@
-// middleware/auth.js
 import jwt from 'jsonwebtoken';
 import User from '../models/user.js';
 
-export const authenticate = async (req, res, next) => {
+export const authenticateToken = async (req, res, next) => {
   try {
+    // Get token from cookies
     const token = req.cookies.token;
     
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Access denied. No token provided.'
+        message: 'Access token is required'
       });
     }
 
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    
+    // Find user
+    const user = await User.findById(decoded.userId).select('-passwordHash');
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Add user to request object
+    req.user = {
+      userId: user._id.toString(),
+      email: user.email
+    };
+
     next();
   } catch (error) {
-    res.status(401).json({
+    console.error('Authentication error:', error);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired'
+      });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
+
+    res.status(500).json({
       success: false,
-      message: 'Invalid token.'
+      message: 'Internal server error'
     });
   }
 };

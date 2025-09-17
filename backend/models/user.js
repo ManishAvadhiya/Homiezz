@@ -20,7 +20,8 @@ const UserSchema = new mongoose.Schema({
   otpExpires: { type: Date },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
-  listedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }]
+  listedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }],
+  role: { type: String, enum: ['tenant', 'owner'], default: 'tenant' }
 }, { timestamps: true });
 
 // Method to compare password

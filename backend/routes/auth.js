@@ -1,4 +1,3 @@
-// routes/auth.js
 import express from 'express';
 import {
   signup,
@@ -10,7 +9,7 @@ import {
   logout,
   getCurrentUser
 } from '../controllers/authController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -21,9 +20,9 @@ router.post('/resend-otp', resendOTP);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+router.post('/logout', logout);
 
-// Protected routes
-router.post('/logout', authenticate, logout);
-router.get('/me', authenticate, getCurrentUser);
+// Protected route - get current user
+router.get('/me', authenticateToken, getCurrentUser);
 
 export default router;

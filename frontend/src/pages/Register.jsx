@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { useUserStore } from "@/store/userStore";
+import { useAuthStore } from "@/store/userStore";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,6 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Register = () => {
   const [activeTab, setActiveTab] = useState("login");
@@ -21,14 +29,37 @@ const Register = () => {
     name: "",
     email: "",
     password: "",
+    aadharNumber: "",
+    phone: "",
+    otp: "",
+    role: "tenant", // Default role
   });
   const [errors, setErrors] = useState({
     name: "",
     email: "",
     password: "",
+    aadharNumber: "",
+    phone: "",
+    otp: "",
+    role: "",
   });
+  const [userId, setUserId] = useState(null);
+  const [showOTP, setShowOTP] = useState(false);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [resetPasswordMode, setResetPasswordMode] = useState(false);
+  const [resetToken, setResetToken] = useState("");
 
-  const { loading, register, login, googleLogin } = useUserStore();
+  const { loading, signup, verifyOTP, resendOTP, login, forgotPassword, resetPassword } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if we have a reset token in the URL
+    const token = searchParams.get('token');
+    if (token) {
+      handleResetPassword(token);
+    }
+  }, [searchParams]);
 
   const validateForm = () => {
     let valid = true;
@@ -36,8 +67,41 @@ const Register = () => {
       name: "",
       email: "",
       password: "",
+      aadharNumber: "",
+      phone: "",
+      otp: "",
+      role: "",
     };
 
+    // Forgot password only needs email
+    if (forgotPasswordMode) {
+      if (!formData.email.trim()) {
+        newErrors.email = "Email is required";
+        valid = false;
+      } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+        newErrors.email = "Email is invalid";
+        valid = false;
+      }
+      
+      setErrors(newErrors);
+      return valid;
+    }
+
+    // Reset password only needs password
+    if (resetPasswordMode) {
+      if (!formData.password) {
+        newErrors.password = "Password is required";
+        valid = false;
+      } else if (formData.password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+        valid = false;
+      }
+      
+      setErrors(newErrors);
+      return valid;
+    }
+
+    // Regular validation for login/register
     if (activeTab === "register" && !formData.name.trim()) {
       newErrors.name = "Name is required";
       valid = false;
@@ -51,11 +115,35 @@ const Register = () => {
       valid = false;
     }
 
+    if (activeTab === "register" && !formData.aadharNumber.trim()) {
+      newErrors.aadharNumber = "Aadhar number is required";
+      valid = false;
+    } else if (activeTab === "register" && !/^\d{12}$/.test(formData.aadharNumber)) {
+      newErrors.aadharNumber = "Aadhar number must be 12 digits";
+      valid = false;
+    }
+
+    if (activeTab === "register" && !formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+      valid = false;
+    } else if (activeTab === "register" && !/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Phone number must be 10 digits";
+      valid = false;
+    }
+
     if (!formData.password) {
       newErrors.password = "Password is required";
       valid = false;
     } else if (formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
+      valid = false;
+    }
+
+    if (showOTP && !formData.otp.trim()) {
+      newErrors.otp = "OTP is required";
+      valid = false;
+    } else if (showOTP && !/^\d{6}$/.test(formData.otp)) {
+      newErrors.otp = "OTP must be 6 digits";
       valid = false;
     }
 
@@ -66,19 +154,114 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+    
     try {
-      if (activeTab === "register") {
-        await register({
+      if (forgotPasswordMode) {
+        // Forgot password request
+        const result = await forgotPassword(formData.email);
+        if (result.success) {
+          toast.success("Check your email for reset instructions");
+          setForgotPasswordMode(false);
+          resetForm();
+        }
+        return;
+      }
+      
+      if (resetPasswordMode) {
+        // Reset password with token
+        const result = await resetPassword(resetToken, formData.password);
+        if (result.success) {
+          toast.success("Password reset successfully");
+          setResetPasswordMode(false);
+          resetForm();
+          navigate('/login');
+        }
+        return;
+      }
+      
+      if (activeTab === "register" && !showOTP) {
+        // First step of registration
+        const result = await signup({
           name: formData.name,
           email: formData.email,
           password: formData.password,
+          aadharNumber: formData.aadharNumber,
+          phone: formData.phone,
+          role: formData.role, // Include role in signup
         });
+        
+        if (result.success) {
+          setUserId(result.userId);
+          setShowOTP(true);
+        }
+      } else if (activeTab === "register" && showOTP) {
+        // OTP verification step
+        const result = await verifyOTP(userId, formData.otp);
+        if (result.success) {
+          setShowOTP(false);
+          setActiveTab("login");
+          toast.success("Registration completed! Please login.");
+          resetForm();
+          // Redirect to home page after successful registration
+          navigate('/');
+        }
       } else {
-        await login(formData.email, formData.password);
+        // Regular login
+        const result = await login(formData.email, formData.password);
+        if (result.success) {
+          resetForm();
+          // Redirect to home page after successful login
+          navigate('/');
+        }
       }
     } catch (error) {
       // Error handling is done in the store
     }
+  };
+
+  const handleResendOTP = async () => {
+    try {
+      const result = await resendOTP(userId);
+      if (result.success) {
+        toast.success("OTP sent successfully");
+      }
+    } catch (error) {
+      // Error handling is done in the store
+    }
+  };
+
+  const handleForgotPassword = () => {
+    setForgotPasswordMode(true);
+    setResetPasswordMode(false);
+    setShowOTP(false);
+  };
+
+  const handleResetPassword = (token) => {
+    setResetToken(token);
+    setResetPasswordMode(true);
+    setForgotPasswordMode(false);
+    setShowOTP(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      aadharNumber: "",
+      phone: "",
+      otp: "",
+      role: "tenant", // Reset to default role
+    });
+    setErrors({
+      name: "",
+      email: "",
+      password: "",
+      aadharNumber: "",
+      phone: "",
+      otp: "",
+      role: "",
+    });
   };
 
   const handleChange = (e) => {
@@ -95,12 +278,19 @@ const Register = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      await googleLogin();
-    } catch (error) {
-      toast.error("Failed to login with Google");
-    }
+  const handleRoleChange = (value) => {
+    setFormData((prev) => ({
+      ...prev,
+      role: value,
+    }));
+  };
+
+  const handleBackToLogin = () => {
+    resetForm();
+    setForgotPasswordMode(false);
+    setResetPasswordMode(false);
+    setShowOTP(false);
+    setActiveTab("login");
   };
 
   return (
@@ -113,164 +303,329 @@ const Register = () => {
       >
         <Tabs
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value)}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            resetForm();
+            setForgotPasswordMode(false);
+            setResetPasswordMode(false);
+            setShowOTP(false);
+          }}
           className="w-full"
         >
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="login">Login</TabsTrigger>
+            <TabsTrigger value="register">Register</TabsTrigger>
+          </TabsList>
+
           <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl font-extrabold bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 bg-clip-text text-transparent animate-pulse">
-                {activeTab === "login"
-                  ? "Welcome back 👋"
-                  : "Create an account 🚀"}
+                {resetPasswordMode 
+                  ? "Reset Password" 
+                  : forgotPasswordMode 
+                    ? "Forgot Password" 
+                    : showOTP 
+                      ? "Verify Email" 
+                      : activeTab === "login"
+                        ? "Welcome back 👋"
+                        : "Create an account 🚀"}
               </CardTitle>
               <CardDescription className="text-base text-gray-600 mt-2">
-                {activeTab === "login"
-                  ? "Enter your credentials to access your account"
-                  : "Fill in the form to get started"}
+                {resetPasswordMode 
+                  ? "Enter your new password" 
+                  : forgotPasswordMode 
+                    ? "Enter your email to reset password" 
+                    : showOTP 
+                      ? "Enter the OTP sent to your email" 
+                      : activeTab === "login"
+                        ? "Enter your credentials to access your account"
+                        : "Fill in the form to get started"}
               </CardDescription>
             </CardHeader>
 
             <CardContent>
-              <Button
-                variant="outline"
-                className="w-full gap-2 mb-4 border-pink-300 text-pink-700 hover:bg-pink-50 font-semibold"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-              >
-                <svg
-                  className="w-5 h-5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                Continue with Google
-              </Button>
-
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-pink-200" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-pink-400 font-semibold">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-
               <form onSubmit={handleSubmit} className="space-y-4">
                 <AnimatePresence mode="wait">
-                  {activeTab === "register" && (
-                    <motion.div
-                      key="register-name"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
-                      className="space-y-2"
-                    >
-                      <Label
-                        htmlFor="name"
-                        className="font-semibold text-gray-700"
+                  {activeTab === "register" && !showOTP && !forgotPasswordMode && !resetPasswordMode && (
+                    <>
+                      <motion.div
+                        key="register-name"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-2"
                       >
-                        Full Name
-                      </Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        placeholder="John Doe"
-                        value={formData.name}
-                        onChange={handleChange}
-                        disabled={loading}
-                        className="bg-orange-50 focus:bg-white"
-                      />
-                      {errors.name && (
-                        <motion.p
-                          className="text-sm text-red-500"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
+                        <Label
+                          htmlFor="name"
+                          className="font-semibold text-gray-700"
                         >
-                          {errors.name}
-                        </motion.p>
-                      )}
-                    </motion.div>
+                          Full Name
+                        </Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          placeholder="John Doe"
+                          value={formData.name}
+                          onChange={handleChange}
+                          disabled={loading}
+                          className="bg-orange-50 focus:bg-white"
+                        />
+                        {errors.name && (
+                          <motion.p
+                            className="text-sm text-red-500"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            {errors.name}
+                          </motion.p>
+                        )}
+                      </motion.div>
+
+                      <motion.div
+                        key="register-role"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3, delay: 0.05 }}
+                        className="space-y-2"
+                      >
+                        <Label
+                          htmlFor="role"
+                          className="font-semibold text-gray-700"
+                        >
+                          Role
+                        </Label>
+                        <Select
+                          value={formData.role}
+                          onValueChange={handleRoleChange}
+                          disabled={loading}
+                        >
+                          <SelectTrigger className="bg-orange-50 focus:bg-white">
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="tenant">Tenant</SelectItem>
+                            <SelectItem value="owner">Owner</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {errors.role && (
+                          <motion.p
+                            className="text-sm text-red-500"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            {errors.role}
+                          </motion.p>
+                        )}
+                      </motion.div>
+
+                      <motion.div
+                        key="register-aadhar"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="space-y-2"
+                      >
+                        <Label
+                          htmlFor="aadharNumber"
+                          className="font-semibold text-gray-700"
+                        >
+                          Aadhar Number
+                        </Label>
+                        <Input
+                          id="aadharNumber"
+                          name="aadharNumber"
+                          placeholder="1234 5678 9012"
+                          value={formData.aadharNumber}
+                          onChange={handleChange}
+                          disabled={loading}
+                          className="bg-orange-50 focus:bg-white"
+                        />
+                        {errors.aadharNumber && (
+                          <motion.p
+                            className="text-sm text-red-500"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            {errors.aadharNumber}
+                          </motion.p>
+                        )}
+                      </motion.div>
+
+                      <motion.div
+                        key="register-phone"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3, delay: 0.2 }}
+                        className="space-y-2"
+                      >
+                        <Label
+                          htmlFor="phone"
+                          className="font-semibold text-gray-700"
+                        >
+                          Phone Number
+                        </Label>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          placeholder="9876543210"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          disabled={loading}
+                          className="bg-orange-50 focus:bg-white"
+                        />
+                        {errors.phone && (
+                          <motion.p
+                            className="text-sm text-red-500"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            {errors.phone}
+                          </motion.p>
+                        )}
+                      </motion.div>
+                    </>
                   )}
                 </AnimatePresence>
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="email"
-                    className="font-semibold text-gray-700"
-                  >
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    disabled={loading}
-                    className="bg-pink-50 focus:bg-white"
-                  />
-                  {errors.email && (
-                    <motion.p
-                      className="text-sm text-red-500"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                {!resetPasswordMode && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="email"
+                      className="font-semibold text-gray-700"
                     >
-                      {errors.email}
-                    </motion.p>
-                  )}
-                </div>
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={formData.email}
+                      onChange={handleChange}
+                      disabled={loading || (showOTP && !forgotPasswordMode)}
+                      className="bg-pink-50 focus:bg-white"
+                    />
+                    {errors.email && (
+                      <motion.p
+                        className="text-sm text-red-500"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.email}
+                      </motion.p>
+                    )}
+                  </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="password"
-                    className="font-semibold text-gray-700"
-                  >
-                    Password
-                  </Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={handleChange}
-                    disabled={loading}
-                    className="bg-purple-50 focus:bg-white"
-                  />
-                  {errors.password && (
-                    <motion.p
-                      className="text-sm text-red-500"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                {!forgotPasswordMode && !resetPasswordMode && !showOTP && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="password"
+                      className="font-semibold text-gray-700"
                     >
-                      {errors.password}
-                    </motion.p>
-                  )}
-                </div>
+                      Password
+                    </Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className="bg-purple-50 focus:bg-white"
+                    />
+                    {errors.password && (
+                      <motion.p
+                        className="text-sm text-red-500"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.password}
+                      </motion.p>
+                    )}
+                  </div>
+                )}
+
+                {resetPasswordMode && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="newPassword"
+                      className="font-semibold text-gray-700"
+                    >
+                      New Password
+                    </Label>
+                    <Input
+                      id="newPassword"
+                      name="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className="bg-purple-50 focus:bg-white"
+                    />
+                    {errors.password && (
+                      <motion.p
+                        className="text-sm text-red-500"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.password}
+                      </motion.p>
+                    )}
+                  </div>
+                )}
+
+                {showOTP && (
+                  <motion.div
+                    key="otp-field"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="space-y-2"
+                  >
+                    <Label
+                      htmlFor="otp"
+                      className="font-semibold text-gray-700"
+                    >
+                      Verification OTP
+                    </Label>
+                    <Input
+                      id="otp"
+                      name="otp"
+                      placeholder="123456"
+                      value={formData.otp}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className="bg-purple-50 focus:bg-white"
+                    />
+                    {errors.otp && (
+                      <motion.p
+                        className="text-sm text-red-500"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.otp}
+                      </motion.p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleResendOTP}
+                      className="text-sm text-purple-600 hover:underline"
+                      disabled={loading}
+                    >
+                      Didn't receive OTP? Resend
+                    </button>
+                  </motion.div>
+                )}
 
                 <AnimatePresence>
-                  {activeTab === "login" && (
+                  {activeTab === "login" && !forgotPasswordMode && !resetPasswordMode && !showOTP && (
                     <motion.div
                       key="forgot"
                       initial={{ opacity: 0, y: 10 }}
@@ -282,6 +637,7 @@ const Register = () => {
                       <button
                         type="button"
                         className="text-sm text-purple-600 hover:underline"
+                        onClick={handleForgotPassword}
                       >
                         Forgot password?
                       </button>
@@ -300,43 +656,70 @@ const Register = () => {
                     disabled={loading}
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {activeTab === "login" ? "Sign in" : "Sign up"}
+                    {resetPasswordMode 
+                      ? "Reset Password" 
+                      : forgotPasswordMode 
+                        ? "Send Reset Link" 
+                        : showOTP 
+                          ? "Verify OTP" 
+                          : activeTab === "login"
+                            ? "Sign in"
+                            : "Sign up"}
                   </Button>
                 </motion.div>
               </form>
+
+              {(forgotPasswordMode || resetPasswordMode || showOTP) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="mt-4 text-center text-sm"
+                >
+                  <button
+                    type="button"
+                    className="text-purple-600 font-semibold hover:underline"
+                    onClick={handleBackToLogin}
+                  >
+                    Back to Login
+                  </button>
+                </motion.div>
+              )}
             </CardContent>
           </Card>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mt-4 text-center text-sm"
-          >
-            {activeTab === "login" ? (
-              <>
-                Don't have an account?{" "}
-                <button
-                  type="button"
-                  className="text-pink-600 font-semibold hover:underline"
-                  onClick={() => setActiveTab("register")}
-                >
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  className="text-purple-600 font-semibold hover:underline"
-                  onClick={() => setActiveTab("login")}
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </motion.div>
+          {!forgotPasswordMode && !resetPasswordMode && !showOTP && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mt-4 text-center text-sm"
+            >
+              {activeTab === "login" ? (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    className="text-pink-600 font-semibold hover:underline"
+                    onClick={() => setActiveTab("register")}
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    className="text-purple-600 font-semibold hover:underline"
+                    onClick={() => setActiveTab("login")}
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </motion.div>
+          )}
         </Tabs>
       </motion.div>
       {/* Decorative animated background blobs */}
