@@ -21,11 +21,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { Link } from "react-router-dom";
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-      {/* Navigation */}
       <Navbar />
 
       {/* Hero Section */}
@@ -83,7 +84,7 @@ export default function HomePage() {
               className="px-10 py-4 text-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-xl rounded-xl transform hover:scale-105 transition-all"
             >
               <Users className="h-6 w-6 mr-3" />
-              <a href="/find-roommates">Find Roommates</a>
+              <Link to="/find-roommates">Find Roommates</Link>
             </Button>
             <Button
               size="lg"
@@ -91,7 +92,7 @@ export default function HomePage() {
               className="px-10 py-4 text-lg border-2 border-orange-300 text-orange-700 shadow-xl rounded-xl transform hover:scale-105 transition-all bg-transparent"
             >
               <Home className="h-6 w-6 mr-3" />
-              <a href="/find-rooms">Browse Rooms</a>
+              <Link to="/find-rooms">Browse Rooms</Link>
             </Button>
           </div>
         </div>
@@ -226,7 +227,7 @@ export default function HomePage() {
                     nearby metro connectivity.
                   </p>
                   <Button className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-lg rounded-xl py-3">
-                    <a href="/view-details">View Details</a>
+                    <Link to="/view-details">View Details</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -296,91 +297,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-card border-t border-border py-12 px-4">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Home className="h-6 w-6 text-primary" />
-                <span className="text-xl font-bold">RoomMate</span>
-              </div>
-              <p className="text-muted-foreground">
-                Making roommate and accommodation finding safe, easy, and
-                reliable.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Platform</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>
-                  <a
-                    href="/find-rooms"
-                    className="hover:text-primary transition-colors"
-                  >
-                    Find Rooms
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="/find-roommates"
-                    className="hover:text-primary transition-colors"
-                  >
-                    Find Roommates
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    List Property
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    Help Center
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    Safety Guidelines
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    Contact Us
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    About Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    Privacy Policy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-primary transition-colors">
-                    Terms of Service
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-border mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2025 Homiezz. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

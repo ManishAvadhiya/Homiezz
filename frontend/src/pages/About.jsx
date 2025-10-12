@@ -1,5 +1,3 @@
-
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +18,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import Navbar from "@/components/Navbar"
+import Footer from "@/components/Footer"
 
 
 export default function AboutPage() {
@@ -297,72 +296,7 @@ export default function AboutPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
-                  <Home className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-xl font-bold">RoomMate</span>
-              </div>
-              <p className="text-gray-400">Making room finding safe, simple, and stress-free for everyone.</p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Quick Links</h3>
-              <div className="space-y-2">
-                <a href="/" className="text-gray-400 hover:text-white block">
-                  Home
-                </a>
-                <a  href="/find-rooms" className="text-gray-400 hover:text-white block">
-                  Find Rooms
-                </a>
-                <a href="/find-roommates" className="text-gray-400 hover:text-white block">
-                  Find Roommates
-                </a>
-                <a href="/about" className="text-gray-400 hover:text-white block">
-                  About
-                </a>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <div className="space-y-2">
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Help Center
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Safety Tips
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Contact Us
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Report Issue
-                </a>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Legal</h3>
-              <div className="space-y-2">
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Privacy Policy
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Terms of Service
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white block">
-                  Cookie Policy
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 RoomMate. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
