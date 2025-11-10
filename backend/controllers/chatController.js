@@ -1,5 +1,6 @@
 // controllers/chatController.js
 
+import mongoose from 'mongoose';
 import Chat from '../models/chat.js';
 import User from '../models/user.js';
 
@@ -9,60 +10,107 @@ export const getOrCreateChat = async (req, res) => {
     const { userId } = req.user;
     const { otherUserId } = req.params;
 
-    if (!otherUserId) {
+    // Validate
+    if (!otherUserId || !mongoose.Types.ObjectId.isValid(otherUserId)) {
       return res.status(400).json({
         success: false,
-        message: 'Other user ID is required'
+        message: 'Invalid user ID'
       });
     }
 
-    // Check if users exist
-    const [user, otherUser] = await Promise.all([
-      User.findById(userId),
-      User.findById(otherUserId)
-    ]);
-
-    if (!user || !otherUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Find existing chat between the two users
+    // Find or create chat
     let chat = await Chat.findOne({
       members: { $all: [userId, otherUserId] }
-    }).populate('members', 'name email avatar')
-      .populate('lastMessage');
+    }).populate('members', 'name avatar');
 
-    // If chat doesn't exist, create a new one
     if (!chat) {
       chat = new Chat({
         members: [userId, otherUserId],
-        messages: []
+        messages: [],
+        unreadCounts: [],
+        lastRead: []
       });
       await chat.save();
-      
-      // Populate the newly created chat
-      chat = await Chat.findById(chat._id)
-        .populate('members', 'name email avatar')
-        .populate('lastMessage');
+      chat = await Chat.findById(chat._id).populate('members', 'name avatar');
     }
 
-    res.status(200).json({
+    // Add unread count to chat object
+    const chatObj = chat.toObject();
+    chatObj.unreadCount = chat.getUnreadCount(userId);
+    chatObj.canSendMessage = !chat.initiatedBy || 
+      chat.initiatedBy.toString() !== userId || 
+      chat.receiverResponded;
+
+    res.json({
       success: true,
-      chat
+      chat: chatObj
     });
   } catch (error) {
-    console.error('Get or create chat error:', error);
+    console.error('Chat error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Failed to create chat'
     });
   }
 };
 
-// Get all chats for a user
+export const getChatMessages = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { userId } = req.user;
+
+    const chat = await Chat.findById(chatId);
+    if (!chat || !chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    // Get unique sender IDs from messages
+    const senderIds = [...new Set(chat.messages.map(msg => msg.sender.toString()))];
+    
+    // Populate sender info for all unique senders
+    const senders = await User.find({ _id: { $in: senderIds } }).select('name avatar');
+    const senderMap = {};
+    senders.forEach(sender => {
+      senderMap[sender._id.toString()] = {
+        _id: sender._id,
+        name: sender.name || 'User',
+        avatar: sender.avatar
+      };
+    });
+
+    // Format messages with sender info
+    const formattedMessages = (chat.messages || []).map(msg => {
+      const senderId = msg.sender.toString();
+      const senderInfo = senderMap[senderId] || {
+        _id: msg.sender,
+        name: 'User',
+        avatar: null
+      };
+      
+      return {
+        _id: msg._id,
+        sender: senderInfo,
+        text: msg.text || '',
+        timestamp: msg.timestamp || new Date()
+      };
+    });
+
+    res.json({
+      success: true,
+      messages: formattedMessages
+    });
+  } catch (error) {
+    console.error('Messages error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load messages'
+    });
+  }
+};
+
 export const getUserChats = async (req, res) => {
   try {
     const { userId } = req.user;
@@ -70,64 +118,85 @@ export const getUserChats = async (req, res) => {
     const chats = await Chat.find({
       members: { $in: [userId] }
     })
-    .populate('members', 'name email avatar')
-    .populate('lastMessage')
+    .populate('members', 'name avatar')
     .sort({ updatedAt: -1 });
 
-    res.status(200).json({
+    // Add unread counts to each chat
+    const chatsWithUnread = chats.map(chat => {
+      const chatObj = chat.toObject();
+      chatObj.unreadCount = chat.getUnreadCount(userId);
+      // Get the other user
+      const otherUser = chat.members.find(m => m._id.toString() !== userId);
+      chatObj.otherUser = otherUser;
+      return chatObj;
+    });
+
+    res.json({
       success: true,
-      chats
+      chats: chatsWithUnread || []
     });
   } catch (error) {
-    console.error('Get user chats error:', error);
+    console.error('Chats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Failed to load chats'
     });
   }
 };
 
-// Get chat messages
-export const getChatMessages = async (req, res) => {
+// Mark messages as read
+export const markMessagesAsRead = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { userId } = req.user;
 
-    const chat = await Chat.findById(chatId)
-      .populate('members', 'name email avatar')
-      .populate('messages.sender', 'name email avatar');
-
-    if (!chat) {
+    const chat = await Chat.findById(chatId);
+    if (!chat || !chat.members.includes(userId)) {
       return res.status(404).json({
         success: false,
         message: 'Chat not found'
       });
     }
 
-    // Check if user is a member of this chat
-    const { userId } = req.user;
-    if (!chat.members.some(member => member._id.toString() === userId)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
+    // Update last read and reset unread count
+    chat.updateLastRead(userId);
+    await chat.save();
 
-    // Paginate messages (newest first)
-    const messages = chat.messages
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice((page - 1) * limit, page * limit);
-
-    res.status(200).json({
+    res.json({
       success: true,
-      messages: messages.reverse(), // Return in chronological order
-      hasMore: chat.messages.length > page * limit
+      unreadCount: chat.getUnreadCount(userId)
     });
   } catch (error) {
-    console.error('Get chat messages error:', error);
+    console.error('Mark as read error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Failed to mark messages as read'
+    });
+  }
+};
+
+// Get total unread count for user
+export const getTotalUnreadCount = async (req, res) => {
+  try {
+    const { userId } = req.user;
+
+    const chats = await Chat.find({
+      members: { $in: [userId] }
+    });
+
+    const totalUnread = chats.reduce((total, chat) => {
+      return total + chat.getUnreadCount(userId);
+    }, 0);
+
+    res.json({
+      success: true,
+      unreadCount: totalUnread
+    });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get unread count'
     });
   }
 };
@@ -223,5 +292,7 @@ export default {
   getUserChats,
   getChatMessages,
   deleteChat,
-  uploadChatFile
+  uploadChatFile,
+  markMessagesAsRead,
+  getTotalUnreadCount
 };

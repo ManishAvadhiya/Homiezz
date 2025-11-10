@@ -3,9 +3,83 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Home, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import RoomCard from "@/components/profile/RoomCard";
+import { useState } from "react";
+import { useRoomStore } from "@/store/roomStore";
+import RoomCard from "./RoomCard";
+import EditRoomForm from "./EditRoomForm";
+import { toast } from "react-hot-toast";
 
-const MyRoomsTab = ({ userRooms, loading, onDeleteRoom }) => {
+const MyRoomsTab = () => {
+  const { userRooms, updateRoom, getUserRooms, loading, deleteRoom } = useRoomStore();
+  const [editingRoom, setEditingRoom] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+
+  const handleEdit = (room) => {
+    console.log("Editing room:", room);
+    console.log("Room ID:", room._id);
+    setEditingRoom(room);
+  };
+
+  const handleSave = async (formData) => {
+    if (!editingRoom || !editingRoom._id) {
+      toast.error("Invalid room ID");
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      // Prepare the update data in the correct format expected by backend
+      const updateData = {
+        title: formData.title,
+        price: parseInt(formData.price),
+        availableBeds: parseInt(formData.availableBeds),
+        description: formData.description,
+        // Address as individual fields (not nested object)
+        address: formData.street,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.zip,
+        // Metadata fields
+        area: formData.area,
+        landmark: formData.landmark,
+        propertyType: formData.propertyType,
+        bedrooms: parseInt(formData.bedrooms),
+        bathrooms: parseInt(formData.bathrooms)
+      };
+
+      console.log("Updating room with ID:", editingRoom._id);
+      console.log("Update data:", updateData);
+
+      const result = await updateRoom(editingRoom._id, updateData);
+      
+      if (result.success) {
+        await getUserRooms();
+        setEditingRoom(null);
+        toast.success("Room updated successfully!");
+      } else {
+        toast.error(result.message || "Failed to update room");
+      }
+    } catch (error) {
+      console.error("Error updating room:", error);
+      toast.error("Failed to update room");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleCancel = () => setEditingRoom(null);
+
+  const handleDelete = async (roomId) => {
+    if (!roomId) {
+      toast.error("Invalid room ID");
+      return;
+    }
+    
+    console.log("Deleting room with ID:", roomId);
+    await deleteRoom(roomId);
+    await getUserRooms();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -38,8 +112,10 @@ const MyRoomsTab = ({ userRooms, loading, onDeleteRoom }) => {
                 <RoomCard 
                   key={room._id} 
                   room={room} 
-                  onDelete={onDeleteRoom}
-                  showDelete={true}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                  showDelete
+                  showEdit
                 />
               ))}
             </div>
@@ -60,6 +136,21 @@ const MyRoomsTab = ({ userRooms, loading, onDeleteRoom }) => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Edit Room Modal */}
+      {editingRoom && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Edit Room</h2>
+            <EditRoomForm
+              room={editingRoom}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              loading={editLoading}
+            />
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -8,15 +8,15 @@ import { createServer } from "http";
 
 import authRoutes from "./routes/authRoutes.js";
 import roomsRoutes from "./routes/roomsRoute.js";
-import chatRoutes from "./routes/chatRoutes.js"; // Add this line
-import roommateRoutes from './routes/roommates.js';
+import chatRoutes from "./routes/chatRoutes.js"; 
+import roommateRoutes from './routes/roommatesRoutes.js';
 import { 
   updateRoommateProfile, 
   getRoommateProfile, 
   toggleRoommateProfile 
 } from './controllers/roommateController.js';
 import { authenticateToken } from "./middleware/authMiddleware.js";
-import { initializeSocket } from "./lib/socket.js"; // Add this line
+import { initializeSocket } from "./lib/socket.js";
 
 dotenv.config();
 
@@ -45,6 +45,7 @@ app.put('/api/user/roommate-profile', authenticateToken, updateRoommateProfile);
 app.get('/api/user/roommate-profile', authenticateToken, getRoommateProfile);
 app.patch('/api/user/roommate-profile/active', authenticateToken, toggleRoommateProfile);
 app.use('/api/roommates', roommateRoutes);
+app.use('/api/roommates/requests', roommateRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend server");

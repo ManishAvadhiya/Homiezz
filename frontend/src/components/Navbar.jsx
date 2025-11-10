@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   Bell,
-  MessageCircle
+  MessageCircle,
+  Users // Add this import for roommate profile icon
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
@@ -20,12 +21,19 @@ import ChatListPanel from "./Chat/ChatListPanel";
 
 const Navbar = () => {
   const { user, checkingAuth, logout, checkAuth } = useAuthStore();
-  const { unreadCount } = useChatStore(); // You can add unread count to your chat store
+  const { totalUnreadCount, loadUserChats } = useChatStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isChatListOpen, setIsChatListOpen] = useState(false);
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
+
+  // Load chats and unread count when user is logged in
+  useEffect(() => {
+    if (user) {
+      loadUserChats();
+    }
+  }, [user, loadUserChats]);
   
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -77,7 +85,7 @@ const Navbar = () => {
   const navItems = [
     { path: "/find-rooms", label: "Find Rooms", icon: Home },
     { path: "/add-rooms", label: "Add Rooms", icon: LayoutDashboard },
-    { path: "/find-roommates", label: "Find Roommates", icon: User },
+    { path: "/find-roommates", label: "Find Roommates", icon: Users }, // Changed icon to Users
     { path: "/about", label: "About Us", icon: Heart },
     { path: "/contact", label: "Contact", icon: Bell },
   ];
@@ -184,11 +192,11 @@ const Navbar = () => {
               >
                 <MessageCircle className="h-6 w-6" />
                 {/* Unread messages badge */}
-                {/* {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadCount}
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                   </span>
-                )} */}
+                )}
               </motion.button>
             )}
 
@@ -204,9 +212,14 @@ const Navbar = () => {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-white font-semibold shadow-md hover:shadow-lg transition-shadow"
+                  className="relative flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-white font-semibold shadow-md hover:shadow-lg transition-shadow"
                 >
                   {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                  {totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold border-2 border-white">
+                      {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </span>
+                  )}
                 </motion.button>
                 
                 <AnimatePresence>
@@ -236,20 +249,30 @@ const Navbar = () => {
                         Profile
                       </Link>
 
+                      {/* NEW: Roommate Profile Link */}
+                      <Link
+                        to="/roommate-profile"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        onClick={() => setIsDropdownOpen(false)}
+                      >
+                        <Users className="mr-2 h-4 w-4" />
+                        Roommate Profile
+                      </Link>
+
                       <button
                         onClick={() => {
                           setIsChatListOpen(true);
                           setIsDropdownOpen(false);
                         }}
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors relative"
                       >
                         <MessageCircle className="mr-2 h-4 w-4" />
                         Messages
-                        {/* {unreadCount > 0 && (
-                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                            {unreadCount}
+                        {totalUnreadCount > 0 && (
+                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                            {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                           </span>
-                        )} */}
+                        )}
                       </button>
                       
                       <Link
@@ -378,20 +401,30 @@ const Navbar = () => {
                         Profile
                       </Link>
 
+                      {/* NEW: Roommate Profile Link for Mobile */}
+                      <Link
+                        to="/roommate-profile"
+                        className="flex items-center py-2 text-sm text-gray-700 hover:text-orange-600 transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Users className="mr-2 h-4 w-4" />
+                        Roommate Profile
+                      </Link>
+
                       <button
                         onClick={() => {
                           setIsChatListOpen(true);
                           setIsMobileMenuOpen(false);
                         }}
-                        className="flex items-center py-2 text-sm text-gray-700 hover:text-orange-600 transition-colors"
+                        className="flex items-center py-2 text-sm text-gray-700 hover:text-orange-600 transition-colors relative"
                       >
                         <MessageCircle className="mr-2 h-4 w-4" />
                         Messages
-                        {/* {unreadCount > 0 && (
-                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                            {unreadCount}
+                        {totalUnreadCount > 0 && (
+                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                            {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                           </span>
-                        )} */}
+                        )}
                       </button>
                       
                       <Link

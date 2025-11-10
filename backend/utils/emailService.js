@@ -78,3 +78,21 @@ export const sendPasswordResetEmail = async (email, token) => {
     return false;
   }
 };
+
+
+export const sendEmail = async ({ to, subject, html }) => {
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to,
+    subject,
+    html
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('Error sending notification email:', error);
+    return false;
+  }
+};

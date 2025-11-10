@@ -112,17 +112,6 @@ const RequestCard = ({ request, type, onAction }) => {
             </div>
           )}
 
-          {/* Request Message Preview */}
-          {request.message && (
-            <div className="mb-2">
-              <p className="text-xs text-gray-600 line-clamp-2">
-                <span className="font-medium">
-                  {type === 'sent' ? 'Your message:' : 'Message:'}
-                </span> {request.message}
-              </p>
-            </div>
-          )}
-
           {/* Quick Room Details */}
           <div className="flex items-center gap-3 mb-2 text-xs text-gray-600">
             <div className="flex items-center">

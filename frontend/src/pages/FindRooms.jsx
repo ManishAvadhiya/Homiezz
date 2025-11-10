@@ -1,3 +1,4 @@
+// pages/FindRooms.jsx - Updated with proper error handling
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
@@ -30,10 +31,14 @@ import {
 import Navbar from "@/components/Navbar"
 import { useRoomStore } from "@/store/roomStore"
 import { useNavigate } from "react-router-dom"
+import { useStartChat } from "@/hooks/useStartChat"
+import Chat from "@/components/Chat/Chat"
+import { toast } from "react-hot-toast"
 
 export default function FindRoomsPage() {
-  const { getRooms, rooms, loading, pagination } = useRoomStore()
+  const { getRooms, rooms = [], loading, pagination } = useRoomStore() // Add default value for rooms
   const navigate = useNavigate()
+  const { startChat } = useStartChat()
   
   const [filters, setFilters] = useState({
     search: "",
@@ -95,6 +100,29 @@ export default function FindRoomsPage() {
     }))
   }
 
+  const handleContact = async (room) => {
+    console.log('Room owner data:', room?.owner);
+    
+    if (!room?.owner) {
+      console.error("Room owner information not available", room);
+      toast.error("Owner information not available");
+      return;
+    }
+    
+    // Try different possible locations for owner ID
+    let ownerId = room.owner?.id || room.owner?._id || room.ownerId || room.listedBy;
+    
+    console.log('Extracted owner ID:', ownerId);
+    
+    if (!ownerId || ownerId === 'undefined' || ownerId === 'null') {
+      console.error("No valid owner ID found in room data");
+      toast.error("Owner information not available");
+      return;
+    }
+    
+    await startChat(ownerId);
+  }
+
   const handlePriceChange = (value) => {
     setFilters(prev => ({
       ...prev,
@@ -152,12 +180,6 @@ export default function FindRoomsPage() {
 
   const handleViewDetails = (roomId) => {
     navigate(`/room/${roomId}`)
-  }
-
-  const handleContact = (room) => {
-    // You can implement contact logic here
-    console.log("Contact room owner:", room.owner)
-    // Could open a modal or redirect to chat
   }
 
   const handleAddToFavorites = (roomId) => {
@@ -242,10 +264,16 @@ export default function FindRoomsPage() {
     )
   }
 
+  // Safe rooms array
+  const safeRooms = Array.isArray(rooms) ? rooms : [];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       {/* Navigation */}
       <Navbar />
+
+      {/* Chat Component */}
+      <Chat />
 
       {/* Hero Section */}
       <section className="py-16 px-4 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 relative overflow-hidden">
@@ -396,7 +424,7 @@ export default function FindRoomsPage() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Available Rooms</h2>
                   <p className="text-gray-600">
-                    {loading ? "Loading..." : `${pagination?.totalResults || 0} properties found`}
+                    {loading ? "Loading..." : `${safeRooms.length} properties found`}
                     {filters.city && ` in ${filters.city}`}
                   </p>
                 </div>
@@ -429,7 +457,7 @@ export default function FindRoomsPage() {
                   <Loader2 className="h-8 w-8 animate-spin text-orange-500 mr-2" />
                   <span className="text-gray-600">Loading rooms...</span>
                 </div>
-              ) : rooms.length === 0 ? (
+              ) : safeRooms.length === 0 ? (
                 <Card className="text-center py-12">
                   <CardContent>
                     <Home className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -459,7 +487,7 @@ export default function FindRoomsPage() {
               ) : (
                 <>
                   <div className="grid gap-6">
-                    {rooms.map((room) => (
+                    {safeRooms.map((room) => (
                       <Card
                         key={room._id}
                         className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm"
@@ -515,10 +543,10 @@ export default function FindRoomsPage() {
                                 <Users className="h-4 w-4 mr-1" />
                                 {room.availableBeds} People
                               </div>
-                              <div className="flex items-center bg-yellow-100 px-2 py-1 rounded-full">
+                              {/* <div className="flex items-center bg-yellow-100 px-2 py-1 rounded-full">
                                 <Star className="h-3 w-3 text-yellow-500 fill-current mr-1" />
                                 <span className="text-yellow-700 font-medium">4.8</span>
-                              </div>
+                              </div> */}
                             </div>
 
                             <div className="flex flex-wrap gap-2 mb-4">
@@ -552,7 +580,7 @@ export default function FindRoomsPage() {
                                 onClick={() => handleContact(room)}
                               >
                                 <MessageCircle className="h-4 w-4 mr-2" />
-                                Contact
+                                Message
                               </Button>
                             </div>
                           </div>

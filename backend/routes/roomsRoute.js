@@ -16,7 +16,8 @@ import {
   getSentRequests,
   getReceivedRequests,
   acceptRequest,
-  rejectRequest
+  rejectRequest,
+  cancelRequest
 } from '../controllers/requestController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
@@ -38,6 +39,7 @@ router.get('/requests/sent', getSentRequests);
 router.get('/requests/received', getReceivedRequests);
 router.post('/requests/:requestId/accept', acceptRequest);
 router.post('/requests/:requestId/reject', rejectRequest);
+router.post('/requests/:requestId/cancel', cancelRequest);
 
 // Room CRUD routes (should come after specific routes)
 router.get('/:id', getRoomById);

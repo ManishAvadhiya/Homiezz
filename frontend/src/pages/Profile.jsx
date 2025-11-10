@@ -1,7 +1,9 @@
+// components/Profile.jsx (updated)
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuthStore } from "@/store/userStore";
 import { useRoomStore } from "@/store/roomStore";
+import { useRoommateStore } from "@/store/roommateStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
@@ -28,25 +30,37 @@ const Profile = () => {
     cancelRequest
   } = useRoomStore();
 
+  const {
+    sentRequests: sentRoommateRequests,
+    receivedRequests: receivedRoommateRequests,
+    getRoommateRequests,
+    acceptRoommateRequest,
+    rejectRoommateRequest,
+    cancelRoommateRequest,
+    loading: roommateLoading
+  } = useRoommateStore();
+
   const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     if (user) {
-      fetchUserRoomsData();
+      fetchUserData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const fetchUserRoomsData = async () => {
+  const fetchUserData = async () => {
     try {
       await Promise.all([
         getUserRooms(),
         getRequestedRooms(),
-        getReceivedRequests()
+        getReceivedRequests(),
+        getRoommateRequests('sent'),
+        getRoommateRequests('received')
       ]);
     } catch (error) {
-      console.error('Error fetching rooms data:', error);
-      toast.error('Failed to load rooms data');
+      console.error('Error fetching user data:', error);
+      toast.error('Failed to load user data');
     }
   };
 
@@ -80,12 +94,37 @@ const Profile = () => {
 
       if (result.success) {
         toast.success(`Request ${action}ed successfully`);
-        await fetchUserRoomsData();
+        await fetchUserData();
       } else {
         toast.error(`Failed to ${action} request`);
       }
     } catch (error) {
       toast.error(`Failed to ${action} request`);
+    }
+  };
+
+  const handleRoommateRequestAction = async (requestId, action) => {
+    try {
+      let result;
+      if (action === 'accept') {
+        result = await acceptRoommateRequest(requestId);
+      } else if (action === 'reject') {
+        result = await rejectRoommateRequest(requestId);
+      } else if (action === 'cancel') {
+        result = await cancelRoommateRequest(requestId);
+      }
+
+      if (result.success) {
+        toast.success(`Roommate request ${action}ed successfully`);
+        await Promise.all([
+          getRoommateRequests('sent'),
+          getRoommateRequests('received')
+        ]);
+      } else {
+        toast.error(`Failed to ${action} roommate request`);
+      }
+    } catch (error) {
+      toast.error(`Failed to ${action} roommate request`);
     }
   };
 
@@ -108,6 +147,8 @@ const Profile = () => {
       </div>
     );
   }
+
+  const loading = roomsLoading || roommateLoading;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
@@ -135,13 +176,15 @@ const Profile = () => {
                 userRooms={userRooms}
                 requestedRooms={requestedRooms}
                 receivedRequests={receivedRequests}
+                sentRoommateRequests={sentRoommateRequests}
+                receivedRoommateRequests={receivedRoommateRequests}
               />
             </TabsContent>
 
             <TabsContent value="my-rooms" className="mt-6">
               <MyRoomsTab 
                 userRooms={userRooms}
-                loading={roomsLoading}
+                loading={loading}
                 onDeleteRoom={handleDeleteRoom}
               />
             </TabsContent>
@@ -150,8 +193,11 @@ const Profile = () => {
               <RequestsTab
                 requestedRooms={requestedRooms}
                 receivedRequests={receivedRequests}
-                loading={roomsLoading}
+                sentRoommateRequests={sentRoommateRequests}
+                receivedRoommateRequests={receivedRoommateRequests}
+                loading={loading}
                 onRequestAction={handleRequestAction}
+                onRoommateRequestAction={handleRoommateRequestAction}
               />
             </TabsContent>
 

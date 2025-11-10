@@ -12,52 +12,67 @@ export const useRoomStore = create((set, get) => ({
   error: null,
   pagination: null,
 
-  getRooms: async (filters = {}) => {
-    set({ loading: true, error: null });
-
+getRooms: async (filters = {}) => {
+    set({ loading: true });
     try {
-      const queryParams = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            value.forEach(v => queryParams.append(key, v));
-          } else {
-            queryParams.append(key, value);
-          }
-        }
-      });
-
-      const res = await axios.get(`/rooms?${queryParams}`);
+      const response = await axios.get('/rooms', { params: filters });
+      
+      // Handle both response formats
+      const roomsData = response.data.rooms || response.data.data || [];
+      const paginationData = response.data.pagination || response.data.meta || null;
+      
+      console.log('Rooms fetched:', roomsData);
+      
       set({ 
-        rooms: res.data.data, 
-        pagination: res.data.pagination,
+        rooms: roomsData,
+        pagination: paginationData,
         loading: false 
       });
-      return { success: true, data: res.data };
+      
+      return { success: true, rooms: roomsData };
     } catch (error) {
-      set({ loading: false, error: error.response?.data?.message });
-      toast.error(error.response?.data?.message || "Failed to fetch rooms");
-      return { success: false };
+      console.error('Error fetching rooms:', error);
+      set({ 
+        rooms: [],
+        pagination: null,
+        loading: false 
+      });
+      return { 
+        success: false, 
+        message: error.response?.data?.message || 'Failed to fetch rooms' 
+      };
     }
   },
 
   getRoomById: async (roomId) => {
-    set({ loading: true, error: null });
+    set({ loading: true });
     try {
       const response = await axios.get(`/rooms/${roomId}`);
       
-      if (response.data.success) {
-        set({ currentRoom: response.data.data, loading: false });
-        return { success: true, data: response.data.data };
-      } else {
-        set({ error: response.data.message, loading: false });
-        return { success: false, message: response.data.message };
+      const roomData = response.data.room || response.data.data;
+      
+      if (!roomData) {
+        throw new Error('Room not found in response');
       }
+      
+      console.log('Room details fetched:', roomData);
+      
+      set({ 
+        currentRoom: roomData,
+        loading: false 
+      });
+      
+      return { success: true, room: roomData };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      set({ error: errorMessage, loading: false });
-      toast.error(errorMessage || "Failed to fetch room");
-      return { success: false, message: errorMessage };
+      console.error('Error fetching room details:', error);
+      set({ 
+        currentRoom: null,
+        loading: false 
+      });
+      return { 
+        success: false, 
+        message: error.response?.data?.message || 'Failed to fetch room details' 
+      };
     }
   },
 
@@ -152,10 +167,10 @@ export const useRoomStore = create((set, get) => ({
   },
 
   // Request related functions - using axios consistently
-  requestRoom: async (roomId, message) => {
+  requestRoom: async (roomId) => {
     set({ loading: true, error: null });
     try {
-      const res = await axios.post(`/rooms/${roomId}/request`, { message });
+      const res = await axios.post(`/rooms/${roomId}/request`);
       
       toast.success("Room request sent successfully!");
       return { success: true, data: res.data.data };

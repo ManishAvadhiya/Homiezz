@@ -1,3 +1,4 @@
+// pages/ViewDetails.jsx (Updated)
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -29,12 +30,13 @@ import {
   Loader2,
   ArrowLeft,
   Send,
-  Clock,
   UserCheck
 } from "lucide-react"
 import { useRoomStore } from "@/store/roomStore"
 import { useAuthStore } from "@/store/userStore"
+import { useStartChat } from "@/hooks/useStartChat"
 import { toast } from "react-hot-toast"
+import Chat from "@/components/Chat/Chat"
 
 export default function ViewDetailsPage() {
   const { id } = useParams()
@@ -42,11 +44,11 @@ export default function ViewDetailsPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLiked, setIsLiked] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [requestMessage, setRequestMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { getRoomById, currentRoom, requestRoom } = useRoomStore()
   const { user } = useAuthStore()
+  const { startChat } = useStartChat()
 
   // Fetch room details when component mounts
   useEffect(() => {
@@ -94,6 +96,21 @@ export default function ViewDetailsPage() {
     }
   }
 
+  const handleMessageOwner = async () => {
+  console.log('Current room owner data:', currentRoom.owner);
+  
+  if (!currentRoom?.owner?.id && !currentRoom?.owner?._id) {
+    console.error("Owner information not available", currentRoom.owner);
+    toast.error("Owner information not available");
+    return;
+  }
+  
+  const ownerId = currentRoom.owner.id || currentRoom.owner._id;
+  console.log('Starting chat with owner ID:', ownerId);
+  
+  await startChat(ownerId);
+}
+
   const handleShareRoom = async () => {
     const shareUrl = window.location.href
     if (navigator.share) {
@@ -127,19 +144,13 @@ export default function ViewDetailsPage() {
       return
     }
 
-    if (!requestMessage.trim()) {
-      toast.error("Please enter a message for the owner")
-      return
-    }
-
     setIsSubmitting(true)
     try {
       console.log('Sending request for room:', id)
-      const result = await requestRoom(id, requestMessage)
+      const result = await requestRoom(id)
       
       if (result.success) {
-        toast.success("Request sent successfully! The listing user will contact you soon.")
-        setRequestMessage("")
+        toast.success("Request sent successfully! The owner will be notified.")
       } else {
         toast.error(result.message || "Failed to send request")
       }
@@ -149,17 +160,6 @@ export default function ViewDetailsPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const handleQuickMessage = (messageType) => {
-    const listingUserName = currentRoom.owner?.name || 'there'
-    const quickMessages = {
-      visit: `Hi ${listingUserName}, I'm interested in visiting your room at ${currentRoom?.address?.area || 'this location'}. Please let me know your available timings.`,
-      virtual: `Hi ${listingUserName}, I'm interested in your room and would like to request a virtual tour. Could you please share more details?`,
-      general: `Hi ${listingUserName}, I'm interested in your room listing and would like to know more details. Please let me know when we can connect.`,
-      immediate: `Hi ${listingUserName}, I'm very interested in this room and available for immediate move-in. Could you please share the next steps?`
-    }
-    setRequestMessage(quickMessages[messageType])
   }
 
   // Get the listing user type display text
@@ -257,6 +257,9 @@ export default function ViewDetailsPage() {
           </div>
         </div>
       </nav>
+
+      {/* Chat Component */}
+      <Chat />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -422,11 +425,11 @@ export default function ViewDetailsPage() {
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Owner Information</h3>
                       <div className="space-y-2">
-                        <div className="flex justify-between">
+                        <div className="flex ">
                           <span className="text-gray-600">Owner Name:</span>
                           <span className="font-medium">{currentRoom.metadata.ownerDetails.ownerName}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex ">
                           <span className="text-gray-600">Contact:</span>
                           <span className="font-medium">{currentRoom.metadata.ownerDetails.ownerContact}</span>
                         </div>
@@ -480,7 +483,11 @@ export default function ViewDetailsPage() {
                     <Phone className="h-4 w-4 mr-2" />
                     Call
                   </Button>
-                  <Button variant="outline" className="flex-1 bg-transparent">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 bg-transparent"
+                    onClick={handleMessageOwner}
+                  >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Message
                   </Button>
@@ -497,64 +504,15 @@ export default function ViewDetailsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Quick Message Buttons */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Quick Messages</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="justify-start text-left h-auto py-2"
-                      onClick={() => handleQuickMessage('visit')}
-                    >
-                      <Clock className="h-3 w-3 mr-2 flex-shrink-0" />
-                      <span className="text-xs">Schedule Visit</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="justify-start text-left h-auto py-2"
-                      onClick={() => handleQuickMessage('virtual')}
-                    >
-                      <span className="text-xs">Virtual Tour</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="justify-start text-left h-auto py-2"
-                      onClick={() => handleQuickMessage('general')}
-                    >
-                      <span className="text-xs">More Info</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="justify-start text-left h-auto py-2"
-                      onClick={() => handleQuickMessage('immediate')}
-                    >
-                      <span className="text-xs">Immediate Move-in</span>
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Message Textarea */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Your Message to {currentRoom.owner?.name || 'Listing User'}
-                  </label>
-                  <textarea
-                    value={requestMessage}
-                    onChange={(e) => setRequestMessage(e.target.value)}
-                    placeholder="Introduce yourself and mention why you're interested in this room..."
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
-                  />
-                </div>
+                <p className="text-sm text-gray-600">
+                  Click the button below to send a request to live in this room. The owner will be notified and can accept or reject your request.
+                </p>
 
                 {/* Submit Button */}
                 <Button
                   className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
                   onClick={handleSendRequest}
-                  disabled={isSubmitting || !requestMessage.trim()}
+                  disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
@@ -564,7 +522,7 @@ export default function ViewDetailsPage() {
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-2" />
-                      Send Request to {currentRoom.metadata?.ownershipType === 'tenant' ? 'Tenant' : 'Owner'}
+                      Request to Live Here
                     </>
                   )}
                 </Button>

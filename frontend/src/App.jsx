@@ -1,4 +1,4 @@
-// App.jsx (Updated)
+// App.jsx (Updated with better error handling)
 import React, { Suspense, useEffect } from "react";
 import {
   Route,
@@ -9,14 +9,13 @@ import {
 } from "react-router-dom";
 import FancyLoader from "./components/Loading";
 import HomePage from "./pages/HomePage";
-import CreateProfileForm from "./pages/CreateUserProfile";
 import FindRoomsPage from "./pages/FindRooms";
 import FindRoommatesPage from "./pages/FindRoommates";
 import AboutPage from "./pages/About";
 import ViewDetailsPage from "./pages/ViewDetails";
 import ResetPassword from "./pages/ResetPassword";
 import { useAuthStore } from "./store/userStore";
-import { useChatStore } from "./store/chatStore"; // Add this import
+import { useChatStore } from "./store/chatStore";
 import Profile from "./pages/Profile";
 import Favorites from "./pages/Favorites";
 import Contact from "./pages/Contact";
@@ -25,7 +24,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup"; 
 import AccommodationMap from "./pages/AccommodationMap";
 import RoommateProfilePage from "./pages/RoommateProfilePage";
-import Chat from "./components/Chat/Chat"; // Add this import
+import Chat from "./components/Chat/Chat";
 
 const App = () => {
   return (
@@ -39,7 +38,7 @@ const App = () => {
 
 const AppContent = () => {
   const { checkAuth, user } = useAuthStore();
-  const { initializeSocket, disconnectSocket } = useChatStore(); // Add this
+  const { initializeSocket, disconnectSocket, socket } = useChatStore();
   
   useEffect(() => {
     checkAuth();
@@ -48,21 +47,27 @@ const AppContent = () => {
   // Initialize socket when user is authenticated
   useEffect(() => {
     if (user) {
-      // You need to get the token from your auth store or cookies
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('token='))
-        ?.split('=')[1];
+      // Get token from cookies or localStorage
+      const tokenFromCookie = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("token="))
+        ?.split("=")[1];
+      const tokenFromLocal = window.localStorage.getItem("token");
+      const token = tokenFromCookie || tokenFromLocal;
       
-      if (token) {
+      if (token && initializeSocket && !socket) {
         initializeSocket(token);
       }
     } else {
-      disconnectSocket();
+      if (disconnectSocket) {
+        disconnectSocket();
+      }
     }
 
     return () => {
-      disconnectSocket();
+      if (disconnectSocket) {
+        disconnectSocket();
+      }
     };
   }, [user, initializeSocket, disconnectSocket]);
 
@@ -77,14 +82,6 @@ const AppContent = () => {
         <Route path="/signup" element={<Signup />} /> 
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/profile" element={<Profile />} />
-        <Route
-          path="/createUserProfile"
-          element={
-            <div className="container mx-auto py-8">
-              <CreateProfileForm />
-            </div>
-          }
-        />
         <Route path="/find-rooms" element={<FindRoomsPage />} />
         <Route path="/find-roommates" element={<FindRoommatesPage />} />
         <Route path="/about" element={<AboutPage />} />
@@ -94,8 +91,6 @@ const AppContent = () => {
         <Route path="/add-rooms" element={<AddRoomPage />} />
         <Route path="/map" element={<AccommodationMap />}/>
         <Route path="/roommate-profile" element={<RoommateProfilePage />} />
-        
-        {/* Add chat route if needed */}
         <Route path="/chat" element={<div>Chat Page</div>} />
       </Routes>
     </div>

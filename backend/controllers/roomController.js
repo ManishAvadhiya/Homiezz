@@ -463,11 +463,11 @@ const updateRoom = async (req, res) => {
         title: title || room.title,
         description: description || room.description,
         address: {
-          street: address || room.address.street,
-          city: city || room.address.city,
-          state: state || room.address.state,
-          zip: pincode || room.address.zip
-        },
+  street: address || room.address.street,
+  city: city || room.address.city,
+  state: state || room.address.state,
+  zip: pincode || room.address.zip
+},
         price: price ? parseInt(price) : room.price,
         amenities: amenities || room.amenities,
         images: images || room.images,

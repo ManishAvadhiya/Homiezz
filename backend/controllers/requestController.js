@@ -1,6 +1,8 @@
 import RoomRequest from '../models/RoomRequest.js';
 import Room from '../models/room.js';
 import User from '../models/user.js';
+import { sendEmail } from '../utils/emailService.js';
+
 
 // @desc    Send room request
 // @route   POST /api/rooms/:roomId/request
@@ -8,7 +10,6 @@ import User from '../models/user.js';
 const sendRoomRequest = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { message } = req.body;
     const userId = req.user.userId;
 
     console.log("Received request for room:", roomId, "from user:", userId);
@@ -59,7 +60,6 @@ const sendRoomRequest = async (req, res) => {
       room: roomId,
       requester: userId,
       owner: room.owner,
-      message: message || '',
       status: 'pending'
     });
 
@@ -67,8 +67,23 @@ const sendRoomRequest = async (req, res) => {
 
     // Populate the request
     await roomRequest.populate('room', 'title price images address availableBeds amenities metadata');
-    await roomRequest.populate('requester', 'name avatar phone');
-    await roomRequest.populate('owner', 'name avatar');
+    await roomRequest.populate('requester', 'name avatar phone email');
+    await roomRequest.populate('owner', 'name avatar email');
+
+    // --- EMAIL NOTIFICATION TO OWNER ---
+    if (roomRequest.owner.email) {
+      await sendEmail({
+        to: roomRequest.owner.email,
+        subject: `New Room Request for "${roomRequest.room.title}"`,
+        html: `
+          <h2>Hello ${roomRequest.owner.name},</h2>
+          <p>You have received a new room request for <b>${roomRequest.room.title}</b>.</p>
+          <p><b>From:</b> ${roomRequest.requester.name} (${roomRequest.requester.email})</p>
+          <p>The requester wants to live in your room.</p>
+          <p>Please login to your Homiezz account to accept or reject this request.</p>
+        `
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -109,7 +124,6 @@ const getSentRequests = async (req, res) => {
       ...request.room.toObject(),
       requestId: request._id,
       status: request.status,
-      message: request.message,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt
     }));
@@ -148,7 +162,6 @@ const getReceivedRequests = async (req, res) => {
       ...request.room.toObject(),
       requestId: request._id,
       status: request.status,
-      message: request.message,
       requester: request.requester,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt
@@ -239,6 +252,20 @@ const acceptRequest = async (req, res) => {
       { $push: { rentedRooms: room._id } }
     );
 
+    // --- EMAIL NOTIFICATION TO REQUESTER ---
+    if (roomRequest.requester.email) {
+      await sendEmail({
+        to: roomRequest.requester.email,
+        subject: `Your Room Request for "${roomRequest.room.title}" was Accepted!`,
+        html: `
+          <h2>Hi ${roomRequest.requester.name},</h2>
+          <p>Your request for <b>${roomRequest.room.title}</b> has been <span style="color:green;"><b>accepted</b></span> by the owner.</p>
+          <p>You can now contact the owner and proceed further.</p>
+          <p>Thank you for using Homiezz!</p>
+        `
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Request accepted successfully',
@@ -297,6 +324,23 @@ const rejectRequest = async (req, res) => {
     // Update request status
     roomRequest.status = 'rejected';
     await roomRequest.save();
+
+    // --- EMAIL NOTIFICATION TO REQUESTER ---
+    // Fetch requester info if not already populated
+    await roomRequest.populate('room', 'title');
+    await roomRequest.populate('requester', 'name email');
+
+    if (roomRequest.requester.email) {
+      await sendEmail({
+        to: roomRequest.requester.email,
+        subject: `Your Room Request for "${roomRequest.room.title}" was Rejected`,
+        html: `
+          <h2>Hi ${roomRequest.requester.name},</h2>
+          <p>Unfortunately, your request for <b>${roomRequest.room.title}</b> was <span style="color:red;"><b>rejected</b></span> by the owner.</p>
+          <p>You can explore more rooms on Homiezz.</p>
+        `
+      });
+    }
 
     res.status(200).json({
       success: true,

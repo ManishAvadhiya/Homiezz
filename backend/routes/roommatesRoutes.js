@@ -1,10 +1,18 @@
-import express from "express";
 import User from "../models/user.js";
+import express from "express";
 import { authenticateToken } from "../middleware/authMiddleware.js";
+import {
+  sendRoommateRequest,
+  getRoommateRequests,
+  acceptRoommateRequest,
+  rejectRoommateRequest,
+  cancelRoommateRequest,
+  sendRoommateMessage
+} from "../controllers/roommateRequestController.js";
 
 const router = express.Router();
 
-// Get all active roommate profiles with filters
+// Public routes
 router.get("/", async (req, res) => {
   try {
     const {
@@ -119,9 +127,20 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Get roommate requests routes - MUST COME BEFORE /:id ROUTE
+router.get("/requests/all", authenticateToken, getRoommateRequests);
+
 // Get single roommate profile
 router.get("/:id", async (req, res) => {
   try {
+    // Validate if the ID is a valid ObjectId
+    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid roommate ID format'
+      });
+    }
+
     const roommate = await User.findById(req.params.id)
       .select("name email avatar phone roommateProfile isVerified createdAt");
 
@@ -152,5 +171,16 @@ router.get("/:id", async (req, res) => {
     });
   }
 });
+
+// Roommate request routes
+router.post("/:id/request", authenticateToken, sendRoommateRequest);
+
+router.post("/requests/:requestId/accept", authenticateToken, acceptRoommateRequest);
+
+router.post("/requests/:requestId/reject", authenticateToken, rejectRoommateRequest);
+
+router.post("/requests/:requestId/cancel", authenticateToken, cancelRoommateRequest);
+
+router.post("/:id/message", authenticateToken, sendRoommateMessage);
 
 export default router;

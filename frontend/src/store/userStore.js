@@ -20,7 +20,6 @@ export const useAuthStore = create((set, get) => ({
         phone,
         role 
       });
-      
       set({ loading: false });
       toast.success("Registration successful! Please check your email for verification OTP.");
       return { success: true, userId: res.data.userId };
@@ -38,6 +37,10 @@ export const useAuthStore = create((set, get) => ({
 
     try {
       const res = await axios.post("/auth/verify-otp", { userId, otp });
+      // Persist token if returned
+      if (res.data?.token) {
+        window.localStorage.setItem("token", res.data.token);
+      }
       set({ user: res.data.user, loading: false });
       toast.success("Email verified successfully!");
       return { success: true };
@@ -72,9 +75,12 @@ export const useAuthStore = create((set, get) => ({
     
     try {
       const res = await axios.post("/auth/login", { email, password });
+      // Persist token if returned
+      if (res.data?.token) {
+        window.localStorage.setItem("token", res.data.token);
+      }
       set({ user: res.data.user, loading: false });
       toast.success("Login successful!");
-      console.log(res.data.user)
       return { success: true };
     } catch (error) {
       console.log(error);
@@ -106,7 +112,10 @@ export const useAuthStore = create((set, get) => ({
     set({ loading: true });
 
     try {
-      await axios.post("/auth/reset-password", { token, newPassword });
+      const res = await axios.post("/auth/reset-password", { token, newPassword });
+      if (res.data?.token) {
+        window.localStorage.setItem("token", res.data.token);
+      }
       set({ loading: false });
       toast.success("Password reset successfully");
       return { success: true };
@@ -122,6 +131,8 @@ export const useAuthStore = create((set, get) => ({
   logout: async () => {
     try {
       await axios.post("/auth/logout");
+      // Clear persisted token
+      window.localStorage.removeItem("token");
       set({ user: null });
       toast.success("Logged out successfully");
     } catch (error) {

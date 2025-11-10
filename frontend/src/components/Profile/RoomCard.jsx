@@ -2,10 +2,10 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Bed, Bath, Home, Eye, Trash2, Loader2 } from "lucide-react";
+import { MapPin, Bed, Bath, Home, Eye, Trash2, Loader2, Pencil } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const RoomCard = ({ room, onDelete, showDelete = false }) => {
+const RoomCard = ({ room, onDelete, onEdit, showDelete = false, showEdit = false }) => {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const formatDate = (dateString) => {
@@ -92,6 +92,17 @@ const RoomCard = ({ room, onDelete, showDelete = false }) => {
                   View
                 </Button>
               </Link>
+              {showEdit && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onEdit(room)}
+                  className="h-8 text-xs"
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+              )}
               {showDelete && (
                 <Button
                   size="sm"

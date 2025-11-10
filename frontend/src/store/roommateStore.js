@@ -7,6 +7,9 @@ export const useRoommateStore = create((set, get) => ({
   roommates: [],
   currentRoommate: null,
   userRoommateProfile: null,
+  roommateRequests: [],
+  sentRequests: [],
+  receivedRequests: [],
   loading: false,
   error: null,
   pagination: null,
@@ -20,6 +23,7 @@ export const useRoommateStore = create((set, get) => ({
     interests: [],
     sortBy: 'newest'
   },
+  sentRoommateRequests: [], // array of roommate IDs
 
   // Get roommates with filters
   getRoommates: async (filters = {}) => {
@@ -27,7 +31,7 @@ export const useRoommateStore = create((set, get) => ({
 
     try {
       const queryParams = new URLSearchParams();
-      
+      filters = {}
       // Merge with existing filters
       const searchFilters = { ...get().filters, ...filters };
       
@@ -153,7 +157,107 @@ export const useRoommateStore = create((set, get) => ({
     }
   },
 
-  // Send roommate request/message
+  // Send roommate request
+  sendRoommateRequest: async (roommateId, message = '') => {
+    set({ loading: true, error: null });
+    
+    try {
+      const res = await axios.post(`/roommates/${roommateId}/request`, { message });
+      
+      set(state => ({
+        sentRoommateRequests: [...state.sentRoommateRequests, roommateId]
+      }));
+      
+      toast.success("Roommate request sent successfully!");
+      return { success: true, data: res.data };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      set({ error: errorMessage, loading: false });
+      toast.error(errorMessage || "Failed to send roommate request");
+      return { success: false, message: errorMessage };
+    }
+  },
+
+  // Get roommate requests (sent and received) - UPDATED ENDPOINT
+  getRoommateRequests: async (type = 'received') => {
+    set({ loading: true, error: null });
+    
+    try {
+      const res = await axios.get(`/roommates/requests/all?type=${type}`);
+      
+      if (type === 'sent') {
+        set({ sentRequests: res.data.data || [], loading: false });
+      } else {
+        set({ receivedRequests: res.data.data || [], loading: false });
+      }
+      
+      return { success: true, data: res.data };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      set({ error: errorMessage, loading: false });
+      toast.error(errorMessage || "Failed to fetch roommate requests");
+      return { success: false, message: errorMessage };
+    }
+  },
+
+  // Accept roommate request
+  acceptRoommateRequest: async (requestId) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const res = await axios.post(`/roommates/requests/${requestId}/accept`);
+      
+      // Refresh received requests after accepting
+      await get().getRoommateRequests('received');
+      toast.success("Roommate request accepted successfully!");
+      return { success: true, data: res.data };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      set({ error: errorMessage, loading: false });
+      toast.error(errorMessage || "Failed to accept roommate request");
+      return { success: false, message: errorMessage };
+    }
+  },
+
+  // Reject roommate request
+  rejectRoommateRequest: async (requestId) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const res = await axios.post(`/roommates/requests/${requestId}/reject`);
+      
+      // Refresh received requests after rejecting
+      await get().getRoommateRequests('received');
+      toast.success("Roommate request rejected successfully!");
+      return { success: true, data: res.data };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      set({ error: errorMessage, loading: false });
+      toast.error(errorMessage || "Failed to reject roommate request");
+      return { success: false, message: errorMessage };
+    }
+  },
+
+  // Cancel roommate request (for sender)
+  cancelRoommateRequest: async (requestId) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const res = await axios.post(`/roommates/requests/${requestId}/cancel`);
+      
+      // Refresh sent requests after cancelling
+      await get().getRoommateRequests('sent');
+      toast.success("Roommate request cancelled successfully!");
+      return { success: true, data: res.data };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      set({ error: errorMessage, loading: false });
+      toast.error(errorMessage || "Failed to cancel roommate request");
+      return { success: false, message: errorMessage };
+    }
+  },
+
+  // Send direct message to roommate (without request)
   sendRoommateMessage: async (roommateId, message) => {
     set({ loading: true, error: null });
     
@@ -209,6 +313,9 @@ export const useRoommateStore = create((set, get) => ({
       roommates: [],
       currentRoommate: null,
       userRoommateProfile: null,
+      roommateRequests: [],
+      sentRequests: [],
+      receivedRequests: [],
       pagination: null
     });
   },
